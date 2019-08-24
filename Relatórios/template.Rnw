@@ -29,11 +29,11 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\lhead[]{Fontes de Alimentação CC e CA}
-\rhead[]{Relatório I}
+\lhead[]{Fontes de Alimenta??o CC e CA}
+\rhead[]{Relat?rio I}
 \chead[]{}
 
-\lfoot{Página \thepage \enspace de \pageref{LastPage} }
+\lfoot{P?gina \thepage \enspace de \pageref{LastPage} }
 \rfoot{\leftmark}
 \renewcommand{\footrulewidth}{1pt}
 
@@ -49,14 +49,14 @@
 \hrule
 \hfill
 
-{\huge \textbf{Título}\par}
+{\huge \textbf{T?tulo}\par}
 \hfill
 \hrule
 \hfill
 
 \vspace{0.5cm}
 
-{\large\itshape Victor Marcius Magalhães Pinto\\Mat: 2019717730\par}
+{\large\itshape Victor Marcius Magalh?es Pinto\\Mat: 2019717730\par}
 
 \vspace{2cm}
 
