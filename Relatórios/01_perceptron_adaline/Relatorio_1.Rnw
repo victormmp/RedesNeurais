@@ -1,6 +1,6 @@
 \documentclass{article}
 
-\usepackage[utf8]{inputenc}
+\usepackage[utf8x]{inputenc}
 \usepackage{ucs}
 \usepackage[portuguese]{babel}
 \usepackage[T1]{fontenc}
@@ -29,7 +29,7 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\lhead[]{Fontes de Alimentação CC e CA}
+\lhead[]{Redes Neurais Artificiais}
 \rhead[]{Relatório I}
 \chead[]{}
 
@@ -64,7 +64,7 @@
 
 \newpage
 
-<<echo=True>>=
+<<echo=TRUE>>=
 u <- 2
 y <- 4
 
