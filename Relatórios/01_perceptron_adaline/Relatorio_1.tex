@@ -1,6 +1,6 @@
 \documentclass{article}
 
-\usepackage[utf8x]{inputenc}
+\usepackage[utf8]{inputenc}
 \usepackage{ucs}
 \usepackage[portuguese]{babel}
 \usepackage[T1]{fontenc}
@@ -29,16 +29,17 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\lhead[]{Fontes de Alimentação CC e CA}
-\rhead[]{Relatório I}
+\lhead[]{Fontes de AlimentaÃ§Ã£o CC e CA}
+\rhead[]{RelatÃ³rio I}
 \chead[]{}
 
-\lfoot{Página \thepage \enspace de \pageref{LastPage} }
+\lfoot{PÃ¡gina \thepage \enspace de \pageref{LastPage} }
 \rfoot{\leftmark}
 \renewcommand{\footrulewidth}{1pt}
 
+\usepackage{Sweave}
 \begin{document}
-\SweaveOpts{concordance=TRUE}
+\input{Relatorio_1-concordance}
 
 \begin{center}
 
@@ -49,18 +50,31 @@
 \hrule
 \hfill
 
-{\huge \textbf{Título}\par}
+{\huge \textbf{Perceptron e Adaline}\par}
 \hfill
 \hrule
 \hfill
 
 \vspace{0.5cm}
 
-{\large\itshape Victor Marcius Magalhães Pinto\\Mat: 2019717730\par}
+{\large\itshape Victor Marcius MagalhÃ£es Pinto\\Mat: 2019717730\par}
 
 \vspace{2cm}
 
 \end{center}
+
+\newpage
+
+\begin{Schunk}
+\begin{Sinput}
+> u <- 2
+> y <- 4
+> print(u + y)
+\end{Sinput}
+\begin{Soutput}
+[1] 6
+\end{Soutput}
+\end{Schunk}
 
 
 

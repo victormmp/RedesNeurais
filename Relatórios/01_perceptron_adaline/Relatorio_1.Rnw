@@ -1,6 +1,6 @@
 \documentclass{article}
 
-\usepackage[utf8x]{inputenc}
+\usepackage[utf8]{inputenc}
 \usepackage{ucs}
 \usepackage[portuguese]{babel}
 \usepackage[T1]{fontenc}
@@ -29,11 +29,11 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\lhead[]{Fontes de AlimentaÁ„o CC e CA}
-\rhead[]{RelatÛrio I}
+\lhead[]{Fontes de Alimenta√ß√£o CC e CA}
+\rhead[]{Relat√≥rio I}
 \chead[]{}
 
-\lfoot{P·gina \thepage \enspace de \pageref{LastPage} }
+\lfoot{P√°gina \thepage \enspace de \pageref{LastPage} }
 \rfoot{\leftmark}
 \renewcommand{\footrulewidth}{1pt}
 
@@ -49,18 +49,27 @@
 \hrule
 \hfill
 
-{\huge \textbf{TÌtulo}\par}
+{\huge \textbf{Perceptron e Adaline}\par}
 \hfill
 \hrule
 \hfill
 
 \vspace{0.5cm}
 
-{\large\itshape Victor Marcius Magalh„es Pinto\\Mat: 2019717730\par}
+{\large\itshape Victor Marcius Magalh√£es Pinto\\Mat: 2019717730\par}
 
 \vspace{2cm}
 
 \end{center}
+
+\newpage
+
+<<echo=True>>=
+u <- 2
+y <- 4
+
+print(u + y)
+@
 
 
 
