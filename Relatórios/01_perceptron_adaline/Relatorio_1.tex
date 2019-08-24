@@ -1,0 +1,82 @@
+\documentclass{article}
+
+\usepackage[utf8x]{inputenc}
+\usepackage{ucs}
+\usepackage[portuguese]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{makecell}
+\usepackage{multirow}
+%\usepackage{subfigure}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{cases}
+%\usepackage[framed,numbered,autolinebreaks,useliterate]{matlab-prettifier}
+%\usepackage{mcode}
+%\usepackage{filecontents}
+\graphicspath{{Imagens/}}
+
+% Mudando a fonte do documento para Times New Roman (ptm)
+\renewcommand*\rmdefault{ptm}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead[]{Redes Neurais Artificiais}
+\rhead[]{Relatório I}
+\chead[]{}
+
+\lfoot{Página \thepage \enspace de \pageref{LastPage} }
+\rfoot{\leftmark}
+\renewcommand{\footrulewidth}{1pt}
+
+\usepackage{Sweave}
+\begin{document}
+\input{Relatorio_1-concordance}
+
+\begin{center}
+
+{\scshape\Large Universidade Federal de Minas Gerais \par}
+{\scshape\large Redes Neurais Artificiais \par}
+\vspace{1cm}
+
+\hrule
+\hfill
+
+{\huge \textbf{Perceptron e Adaline}\par}
+\hfill
+\hrule
+\hfill
+
+\vspace{0.5cm}
+
+{\large\itshape Victor Marcius Magalhães Pinto\\Mat: 2019717730\par}
+
+\vspace{2cm}
+
+\end{center}
+
+\newpage
+
+\begin{Schunk}
+\begin{Sinput}
+> u <- 2
+> y <- 4
+> print(u + y)
+\end{Sinput}
+\begin{Soutput}
+[1] 6
+\end{Soutput}
+\end{Schunk}
+
+
+
+
+\end{document}
