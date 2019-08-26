@@ -45,7 +45,7 @@
 
 {\scshape\Large Universidade Federal de Minas Gerais \par}
 {\scshape\large Redes Neurais Artificiais \par}
-\vspace{1cm}
+\vspace{5cm}
 
 \hrule
 \hfill
@@ -55,7 +55,7 @@
 \hrule
 \hfill
 
-\vspace{0.5cm}
+\vspace{3cm}
 
 {\large\itshape Victor Marcius Magalhães Pinto\\Mat: 2019717730\par}
 
@@ -65,15 +65,27 @@
 
 \newpage
 
+\section{Introdução}
+
+Os exercícios pro;...
+
+\section{Classificação}
+
+\subsection{Classes linearmente separáveis}
 \begin{Schunk}
 \begin{Sinput}
-> u <- 2
-> y <- 4
-> print(u + y)
+> class1 = matrix(rnorm(400, 3, 1), ncol = 2)
+> class2 = matrix(rnorm(400, 7, 1), ncol = 2)
 \end{Sinput}
-\begin{Soutput}
-[1] 6
-\end{Soutput}
+\end{Schunk}
+
+\includegraphics{Relatorio_1-002}
+
+
+\begin{Schunk}
+\begin{Sinput}
+> ydata = read.csv("BUILDING1paraR.DT", sep=" ")
+\end{Sinput}
 \end{Schunk}
 
 

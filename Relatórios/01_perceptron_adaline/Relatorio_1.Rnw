@@ -44,7 +44,7 @@
 
 {\scshape\Large Universidade Federal de Minas Gerais \par}
 {\scshape\large Redes Neurais Artificiais \par}
-\vspace{1cm}
+\vspace{5cm}
 
 \hrule
 \hfill
@@ -54,7 +54,7 @@
 \hrule
 \hfill
 
-\vspace{0.5cm}
+\vspace{3cm}
 
 {\large\itshape Victor Marcius Magalhães Pinto\\Mat: 2019717730\par}
 
@@ -64,11 +64,48 @@
 
 \newpage
 
-<<echo=TRUE>>=
-u <- 2
-y <- 4
+\section{Introdução}
 
-print(u + y)
+Os exercícios pro;...
+
+\section{Classificação}
+
+\subsection{Classes linearmente separáveis}
+<<echo=TRUE, fig=FALSE>>=
+
+set.seed(42)
+
+class1 = matrix(rnorm(800, 3, 1), ncol = 2)
+class2 = matrix(rnorm(800, 7, 1), ncol = 2)
+@
+
+<<echo=FALSE, fig=TRUE>>=
+
+plot(class1[,1], class1[,2], xlim=c(0,12), ylim=c(0,12), col='red', xlab='x1', ylab='x2')
+par(new=TRUE)
+plot(class2[,1], class2[,2], xlim=c(0,12), ylim=c(0,12), col='blue', xlab='', ylab='')
+
+@
+
+<<echo=FALSE>>=
+x = rbind(class1, class2)
+y = c(replicate(dim(class1)[1], -1), replicate(dim(class2)[1], 1))
+
+index_train = sample(seq(dim(x)[1]), as.integer(0.7*dim(x)[1]), replace=FALSE)
+x_train = x[index_train,]
+x_test = x[-index_train,]
+@
+
+
+
+
+
+\subsection{Função de treinamento}
+
+
+
+<<echo=TRUE>>=
+ydata = read.csv("BUILDING1paraR.DT", sep=" ")
 @
 
 
