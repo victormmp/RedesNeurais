@@ -70,6 +70,12 @@ Os exercícios pro;...
 
 \section{Classificação}
 
+<<echo=FALSE>>=
+library('tictoc')
+library('stringr')
+@
+
+
 \subsection{Classes linearmente separáveis}
 <<echo=TRUE, fig=FALSE>>=
 
@@ -94,14 +100,58 @@ y = c(replicate(dim(class1)[1], -1), replicate(dim(class2)[1], 1))
 index_train = sample(seq(dim(x)[1]), as.integer(0.7*dim(x)[1]), replace=FALSE)
 x_train = x[index_train,]
 x_test = x[-index_train,]
+
+y_train <- y[index_train]
+y_test = y[-index_train]
 @
-
-
-
-
 
 \subsection{Função de treinamento}
 
+<<echo=TRUE>>=
+train <- function(x, y) {
+
+    print("Starting training function...")
+    tic("Training complete.")
+
+    epochs <- 100
+    correction_factor <- 0.01
+
+    x_aug <- c(x, replicate(dim(x)[1], 1))
+
+    w = rnorm(dim(x)[2] +1, 0, 1)
+
+    errors = c()
+
+    for (iter in seq(epochs)) {
+        print(str_interp('Epoch [ ${iter} / ${epochs} ]'))
+
+        for (index in sample(dim(x)[1])){
+            y_partial <- 1*(x_aug[index] %*% w >= 0)
+            error <- y[index] - y_partial
+            delt_w <- correction_factor*error*x_aug[index]
+            w <- w + delt_w
+
+            curr_error <- c(errors, error)
+        }
+        print(str_interp('    Error: ${mean(curr_error)}'))
+        errors <- c(errors, mean(curr_error))
+    }
+
+    toc()
+    result <- list('errors'=errors, 'weights'=w)
+
+    return(result)
+}
+@
+
+<<echo=TRUE>>=
+results <- train(x_train, y_train)
+@
+
+<<echo=FALSE, fig=TRUE>>=
+par(new=T)
+plot()
+@
 
 
 <<echo=TRUE>>=
