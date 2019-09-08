@@ -1,3 +1,4 @@
 **/*.synctex.gz
 **/*.log
 **/*-concordance.tex
+**/*.zip

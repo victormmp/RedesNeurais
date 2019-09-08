@@ -1,0 +1,399 @@
+\documentclass{article}
+
+\usepackage[utf8x]{inputenc}
+\usepackage{ucs}
+\usepackage[portuguese]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{makecell}
+\usepackage{hyperref}
+\usepackage{multirow}
+%\usepackage{subfigure}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{cases}
+%\usepackage[framed,numbered,autolinebreaks,useliterate]{matlab-prettifier}
+%\usepackage{mcode}
+%\usepackage{filecontents}
+\graphicspath{{Imagens/}}
+
+% Mudando a fonte do documento para Times New Roman (ptm)
+\renewcommand*\rmdefault{ptm}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead[]{Redes Neurais Artificiais}
+\rhead[]{Relatório II}
+\chead[]{}
+
+\lfoot{Página \thepage \enspace de \pageref{LastPage} }
+\rfoot{\leftmark}
+\renewcommand{\footrulewidth}{1pt}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\begin{center}
+
+{\scshape\Large Universidade Federal de Minas Gerais \par}
+{\scshape\large Redes Neurais Artificiais \par}
+\vspace{5cm}
+
+\hrule
+\hfill
+
+{\huge \textbf{ELM e RBF}\par}
+\hfill
+\hrule
+\hfill
+
+\vspace{3cm}
+
+{\large\itshape Victor Marcius Magalhães Pinto\\Mat: 2019717730\par}
+
+\vspace{2cm}
+
+\end{center}
+
+\newpage
+
+\section{Introdução}
+
+Os exercícios propostos tem por objetivo exercitar um maior conhecimento a respeito de implementações de redes neurais multicamadas, particularmente de técnicas de cálculo dos pesos. Redes ELM \textit{(Extreme Machine Learning)} baseiam-se no Teorema de Cover para realizar um remapeamento das features de entrada em um plano linearmente separável, onde a matriz de pesos de remapeamento é obtida de forma aleatória. Desta forma, ao remapear o  conjunto de dados em um um plano de maior dimensonalidade, existe uma alta probabilidade de que as classes sejam, agora, linearmente separáveis. Redes RBF, por sua vez, fazem uso de uma função de ativação radial, tipicamente oriundas de processos de clusterização, para a inicialização dos pesos da matriz de remapeamento.
+
+
+\section{ELM}
+
+<<echo=FALSE>>=
+rm(list=ls())
+library(pracma)
+library(corpcor)
+library(mlbench)
+library(pROC)
+set.seed(42)
+@
+
+\subsection{Modelagem de função de OU Exclusivo}
+
+Usaremos ELM para modelar uma função XOR, seguindo a tabela verdade,  para u conjunto de entrada de variáveis:
+
+% Please add the following required packages to your document preamble:
+% \usepackage{graphicx}
+\begin{table}[H]
+\begin{tabular}{ccc}
+\textbf{x1} & \textbf{x2} & \textbf{y} \\ \hline
+0 & 0 & 0 \\
+0 & 1 & 1 \\
+1 & 0 & 1 \\
+1 & 1 & 0
+\end{tabular}
+\end{table}
+
+<<echo=TRUE, fig=F>>=
+load("data2classXOR.txt")
+
+rows <- dim(X)[1]
+features <- dim(X)[2]
+
+@
+
+As features das observações podem ser entendidas como sendo valores acima ou abaixo de um determinado threshold, podendo ser modeladas como valores reais, ao invés de entradas binárias. Digamos que qualquer valor acima de 3 seja classificado como sendo 1, e abaixo como sendo 0. Desta forma a divisão das amostras pode ser vista conforme abaixo, onde a classe azul corresponde às variáveis cuja saída é 1, e a vermelha, cuja saída é 0 (ou como obtidas nos experimentos, -1).
+
+<<echo=F, fig=T, fig.cap='Classes'>>=
+
+lim = c(min(X), max(X))
+
+index_1 <- which(Y > 0)
+class1 <- X[index_1,]
+class2 <-X[-index_1,]
+plot(class1[,1], class1[,2], xlim=lim, ylim=lim, col='blue', xlab='x1', ylab='x2')
+par(new=T)
+plot(class2[,1], class2[,2], xlim=lim, ylim=lim, col='red', xlab='', ylab='')
+@
+
+
+A rede implementada possui uma camada escondida, com 5 neurônios. O que siginifa que mapearemos cada variável, de um espaço de duas variáveis para um espaço de 5. Os pesos da matriz Z responsável pelo mapeamento das variáveis para os neurônios da camada intermediária é inicializado de forma aleatória. A partir disso, uma nova matriz de saída desta camada, remapeada, é gerada. A matriz possui dimensões iguais à quantidade de amostras de entrada pela quantidade de features novas correspondentes (número de neurônios).
+
+<<echo=T>>=
+# Number of neurons in hidden layer
+p <- 5
+Z <- replicate(p, runif(features+1, -0.5, 0.5))
+
+print('Matriz Z')
+print(Z)
+
+# Adição de um termo correspondente ao bias na entrada de cada neurônio
+Xaug <- cbind(replicate(rows, 1), X)
+
+H <- tanh(Xaug %*% Z)
+@
+
+O cálculo da matriz de pesos, responsável por remapear as amostras, deste novo hiperplano, para os rótulos de classes corretos, é realizado através de mínimos quadrados, da saída com a pseudoinversa da saída da camada intermediária:
+
+<<echo=T>>=
+W <- pseudoinverse(H) %*% Y
+@
+
+O erro para o modelo calculado é dados por:
+
+<<echo=T>>=
+# Calculate Error
+Y_hat <- sign(H %*% W)
+err <- sum((Y-Y_hat)^2)/4
+print(err)
+@
+
+Aplicando o modelo para um conjunto de teste, o erro calculado é de:
+
+<<echo=T>>=
+# Test
+Xaug <- cbind(replicate(features * 4, 1), X_t)
+Ht <- tanh(Xaug %*% Z)
+Y_hat_t <- sign(Ht %*% W)
+err_t <- sum((Y_t-Y_hat_t)^2)/4
+print(err_t)
+@
+
+A aplicação de ELM determina que mapeamos as amostras para um  espaço de dimmensionalidade muito maior do que o espaço original. Para 10 neurônios na camada escondida, temos:
+
+<<echo=F>>=
+p <- 10
+Z <- replicate(p, runif(features+1, -0.5, 0.5))
+Xaug <- cbind(replicate(rows, 1), X)
+H <- tanh(Xaug %*% Z)
+W <- pseudoinverse(H) %*% Y
+Y_hat <- sign(H %*% W)
+err <- sum((Y-Y_hat)^2)/4
+print(paste('Erro treinamento:', err))
+
+# Test
+Xaug <- cbind(replicate(features * 4, 1), X_t)
+Ht <- tanh(Xaug %*% Z)
+Y_hat_t <- sign(Ht %*% W)
+err_t <- sum((Y_t-Y_hat_t)^2)/4
+print(paste('Erro teste:',err_t))
+@
+
+\noindent
+para 50 neurônios,
+
+<<echo=F>>=
+p <- 50
+Z <- replicate(p, runif(features+1, -0.5, 0.5))
+Xaug <- cbind(replicate(rows, 1), X)
+H <- tanh(Xaug %*% Z)
+W <- pseudoinverse(H) %*% Y
+Y_hat <- sign(H %*% W)
+err <- sum((Y-Y_hat)^2)/4
+print(paste('Erro:', err))
+
+# Test
+Xaug <- cbind(replicate(features * 4, 1), X_t)
+Ht <- tanh(Xaug %*% Z)
+Y_hat_t <- sign(Ht %*% W)
+err_t <- sum((Y_t-Y_hat_t)^2)/4
+print(paste('Erro teste:',err_t))
+@
+
+
+\noindent
+para 100 neurônios,
+
+<<echo=F>>=
+p <- 100
+Z <- replicate(p, runif(features+1, -0.5, 0.5))
+Xaug <- cbind(replicate(rows, 1), X)
+H <- tanh(Xaug %*% Z)
+W <- pseudoinverse(H) %*% Y
+Y_hat <- sign(H %*% W)
+err <- sum((Y-Y_hat)^2)/4
+print(paste('Erro:', err))
+
+# Test
+Xaug <- cbind(replicate(features * 4, 1), X_t)
+Ht <- tanh(Xaug %*% Z)
+Y_hat_t <- sign(Ht %*% W)
+err_t <- sum((Y_t-Y_hat_t)^2)/4
+print(paste('Erro teste:',err_t))
+@
+
+\noindent
+para 500 neurônios,
+
+<<echo=F>>=
+p <- 500
+Z <- replicate(p, runif(features+1, -0.5, 0.5))
+Xaug <- cbind(replicate(rows, 1), X)
+H <- tanh(Xaug %*% Z)
+W <- pseudoinverse(H) %*% Y
+Y_hat <- sign(H %*% W)
+err <- sum((Y-Y_hat)^2)/4
+print(paste('Erro:', err))
+
+# Test
+Xaug <- cbind(replicate(features * 4, 1), X_t)
+Ht <- tanh(Xaug %*% Z)
+Y_hat_t <- sign(Ht %*% W)
+err_t <- sum((Y_t-Y_hat_t)^2)/4
+print(paste('Erro teste:',err_t))
+@
+
+De forma geral, temos, para o treinamento, a seguinte :
+
+
+<<echo=F, fig=T>>=
+errs_train <- c()
+errs_test <- c()
+for (p in seq(1, 1000, 10)) {
+    Z <- replicate(p, runif(features+1, -0.5, 0.5))
+    Xaug <- cbind(replicate(rows, 1), X)
+    H <- tanh(Xaug %*% Z)
+    W <- pseudoinverse(H) %*% Y
+    Y_hat <- sign(H %*% W)
+    err <- sum((Y-Y_hat)^2)/4
+    errs_train <- c(errs_train, err)
+
+    # Test
+    Xaug <- cbind(replicate(features * 4, 1), X_t)
+    Ht <- tanh(Xaug %*% Z)
+    Y_hat_t <- sign(Ht %*% W)
+    err_t <- sum((Y_t-Y_hat_t)^2)/4
+    errs_test <- c(errs_test, err_t)
+}
+
+plot(seq(1, 1000, 10), errs_train, xlab='Números de neurônios na camada intermediária para treinamento', ylab='Erros', type='l')
+
+@
+
+E, para as amostras de teste,
+
+<<echo=F, fig=T>>=
+plot(seq(1, 1000, 10), errs_test, xlab='Números de neurônios na camada intermediária para teste', ylab='Erros', type='l')
+@
+
+Os gráficos dos erros de treinamento e teste indicam que, quanto maior a quantidade de neurônios na camada intermediária, ou seja, maior a dimensionalidade do novo espaço, menor o erro de trinamento, ou seja, maior a separabilidade das classes, porém uma maior oscilação nos erros dos testes, o que pode ser um indicativo de overfitting no modelo.
+
+\subsection{Wisconsin Breast Cancer}
+
+O modelo de redes neurais multicamadas ELM é, agora, utilizado para treinamento de dataset Wisconsin Breast Cancer. O dataset foi dividido em treinamento e teste.
+
+<<echo=T>>=
+rm(list=ls())
+data("BreastCancer")
+
+bc <- BreastCancer[complete.cases(BreastCancer),]
+x <- bc[, 2:10]
+y <- bc[,11]
+
+x <- sapply(x, as.numeric)
+y <- replicate(dim(bc)[1], 0)
+y[which(bc[,11]== 'benign')] = -1
+y[which(bc[,11]== 'malignant')] = 1
+
+index_train = sample(seq(dim(x)[1]), as.integer(0.7*dim(x)[1]), replace=FALSE)
+x_train = x[index_train,]
+x_test = x[-index_train,]
+
+y_train <- y[index_train]
+y_test = y[-index_train]
+@
+
+Para avaliar o resultado das operações, será feito uso de uma função de performance, especificada como abaixo:
+
+<<echo=T>>=
+evaluate <- function(y, y_hat) {
+
+    y[which(y<0)] = 0
+    y_hat[which(y_hat<0)] = 0
+
+    errors <- y - y_hat
+    false_positive <- length(errors[errors < 0])
+    true_positive <- length(y[y[which(errors == 0)] > 0])
+    false_negative <- length(errors[errors > 0])
+    true_negative <- length(y[y[which(errors == 0)] <= 0])
+
+    confusion_matrix <- matrix(replicate(4, 0), nrow = 2, ncol = 2)
+    confusion_matrix[1,1] <- true_positive
+    confusion_matrix[1,2] <- false_positive
+    confusion_matrix[2,1] <- false_negative
+    confusion_matrix[2,2] <- true_negative
+
+    return(list(
+        'errors' = errors,
+        'error'= mean(abs(errors)),
+        'accuracy' = (1 - mean(abs(errors))),
+        'specitivity'= true_negative / (true_negative + false_positive),
+        'sensibility' = true_positive / (true_positive + false_negative),
+        'confusion_matrix' = confusion_matrix
+    ))
+}
+@
+
+
+Realizando o treinamento, temos as seguintes métricas como resultado.
+
+<<echo=F, fig=F>>=
+rows <- dim(x_train)[1]
+features <- dim(x_train)[2]
+
+# Number of neurons in hidden layer
+p <- 20
+Z <- replicate(p, runif(features+1, -0.5, 0.5))
+Xaug <- cbind(replicate(rows, 1), x_train)
+
+H <- tanh(Xaug %*% Z)
+W <- pseudoinverse(H) %*% y_train
+
+# Calculate Error
+Y_hat <- sign(H %*% W)
+
+result <- evaluate(y_train, Y_hat)
+
+sprintf('Porcentagem de erro: %f', result$error)
+sprintf('Acurácia: %f', result$accuracy)
+sprintf('Sensibiliade: %f', result$sensibility)
+sprintf('Especificidade: %f', result$specitivity)
+@
+
+As métricas de teste obtidas mostram um bom desempenho do modelo para a predição de câncer de mama, com as features especificadas. A matriz de confusão obtida pode ser vista a seguir:
+
+<<echo=F>>=
+print(result$confusion_matrix)
+@
+
+A matriz de confusão corresponde a:
+
+\begin{table}[H]
+\begin{tabular}{|l|l|}
+\hline
+True Positive & False Positive \\ \hline
+False Negative & True Negative \\ \hline
+\end{tabular}
+\end{table}
+
+
+
+
+
+
+
+\begin{thebibliography}{1}
+
+	%Each item starts with a \bibitem{reference} command and the details thereafter.
+	\bibitem{specificity} % Transaction paper
+	ML Metrics: Sensitivity vs. Specificity -
+	\url{https://dzone.com/articles/ml-metrics-sensitivity-vs-specificity-difference}.
+	Acessado em 28 de agosto de 2019.
+
+
+\end{thebibliography}
+
+\end{document}

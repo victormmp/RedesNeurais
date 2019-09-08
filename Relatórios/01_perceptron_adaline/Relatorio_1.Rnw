@@ -13,6 +13,7 @@
 \usepackage{geometry}
 \usepackage{float}
 \usepackage{makecell}
+\usepackage{hyperref}
 \usepackage{multirow}
 %\usepackage{subfigure}
 \usepackage[table,xcdraw]{xcolor}
@@ -66,17 +67,23 @@
 
 \section{Introdução}
 
-Os exercícios pro;...
+Os exercícios propostos tem por objetivo exercitar uma maior conhecimento à respeito das implementações mais simples de redes neurais, tanto para classificação quanto para regressão. O Perceptron consiste em um único neurônio, realizando uma soma ponderada de parâmetros de entrada e aplicando uma função de ativação a fim de classificar classes linearmente separáveis, através de uma reta de limite. O Adaline consiste em um neurônio capaz de realizar regressões lineares e polinomiais.
 
 \section{Classificação}
 
 <<echo=FALSE>>=
 library('tictoc')
 library('stringr')
+library('pracma')
+library('mlbench')
 @
 
+As primeiras propostas de aplicação consistem em utilizar o perceptron para solucionar problemas de classificação. O mesmo realiza uma soma ponderada dos parâmetros de entrada, juntamente com a adição de um termo de bias, e depois aplica uma função de separação, comumente uma tangente hiperbólica, de forma a realizar uma classificação de um conjunto de dados em duas classes distintas. Graficamente, estabelece uma reta suporte, onde amostras "acima" desta reta são classificadas como pertencentes a uma determinada classe, e retas abaixo, a outra.
 
 \subsection{Classes linearmente separáveis}
+
+Primeiramente, definimos dois consjutos de classes linearmente separáveis, como observado a seguir.
+
 <<echo=TRUE, fig=FALSE>>=
 
 set.seed(42)
@@ -87,15 +94,16 @@ class2 = matrix(rnorm(800, 7, 1), ncol = 2)
 
 <<echo=FALSE, fig=TRUE>>=
 
-plot(class1[,1], class1[,2], xlim=c(0,12), ylim=c(0,12), col='red', xlab='x1', ylab='x2')
-par(new=TRUE)
-plot(class2[,1], class2[,2], xlim=c(0,12), ylim=c(0,12), col='blue', xlab='', ylab='')
+lim <- c(0,12)
 
+plot(class1[,1], class1[,2], xlim=lim, ylim=lim, col='red', xlab='x1', ylab='x2')
+par(new=TRUE)
+plot(class2[,1], class2[,2], xlim=lim, ylim=lim, col='blue', xlab='', ylab='')
 @
 
 <<echo=FALSE>>=
 x = rbind(class1, class2)
-y = c(replicate(dim(class1)[1], -1), replicate(dim(class2)[1], 1))
+y = c(replicate(dim(class1)[1], 0), replicate(dim(class2)[1], 1))
 
 index_train = sample(seq(dim(x)[1]), as.integer(0.7*dim(x)[1]), replace=FALSE)
 x_train = x[index_train,]
@@ -107,58 +115,491 @@ y_test = y[-index_train]
 
 \subsection{Função de treinamento}
 
+O treinamento de um perceptron consiste no ajuste do valor de seus pesos. Inicialmente os pesos são definidos de uma maneira randômica, e então é avaliado o desempenho da superfície de separação resultante em classificar corretamente um dado conjunto de amostras, com base em seus rótulos reais.
+
+\begin{align}
+\overline{w} = {w_1,  w_2, ... , w_n} \\
+\hat{y} = \tanh{(\overline{w} \cdot \overline{x}')}
+\end{align}
+
+\begin{equation}
+error = y_{label} - \hat{y}
+\end{equation}
+
+O peso, então, é atualizado conforme o seguinte. Seja t a interação atual do algoritmo,
+
+\begin{equation}
+w_{t + 1} = w_t + \eta \cdot error \cdot \overline{x}
+\end{equation}
+
+\noindent
+sendo $\eta$ uma constante de aprendizado, de correção dos pesos. O algoritmo, portanto, tem a forma,
+
 <<echo=TRUE>>=
-train <- function(x, y) {
-
-    print("Starting training function...")
-    tic("Training complete.")
-
+train <- function(x, y, eta=0.01) {
     epochs <- 100
-    correction_factor <- 0.01
+    correction_factor <- eta
 
-    x_aug <- c(x, replicate(dim(x)[1], 1))
+    x_aug <- cbind(x, replicate(dim(x)[1], 1))
 
     w = rnorm(dim(x)[2] +1, 0, 1)
 
     errors = c()
 
     for (iter in seq(epochs)) {
-        print(str_interp('Epoch [ ${iter} / ${epochs} ]'))
 
+        curr_error <- c()
         for (index in sample(dim(x)[1])){
-            y_partial <- 1*(x_aug[index] %*% w >= 0)
+            y_partial <- 1*((x_aug[index,] %*% w) >= 0)
             error <- y[index] - y_partial
-            delt_w <- correction_factor*error*x_aug[index]
+            delt_w <- correction_factor*error*x_aug[index,]
             w <- w + delt_w
 
-            curr_error <- c(errors, error)
+            curr_error <- c(curr_error, error)
         }
-        print(str_interp('    Error: ${mean(curr_error)}'))
         errors <- c(errors, mean(curr_error))
     }
 
-    toc()
     result <- list('errors'=errors, 'weights'=w)
 
     return(result)
 }
 @
 
+Os pessos são revaliados várias vezes, a partir de um número de épocas determinado, e a cada iteração espera-se que o erro associado à classificação diminua, e o valor obtido pelo modelo se aproxime do valor real das observações.
+
+A função de avaliação dos resultados, pode ser implementada como:
+
 <<echo=TRUE>>=
-results <- train(x_train, y_train)
+evaluate <- function(x, y, w) {
+    y_result <- c()
+
+    errors <- c()
+    false_positive <- 0
+    true_positive <- 0
+    false_negative <- 0
+    true_negative <- 0
+
+    x_aug <- cbind(x, replicate(dim(x)[1], 1))
+
+    for (index in seq(dim(x)[1])) {
+        y_partial <- 1*((x_aug[index,] %*% w) >= 0)
+        error <- y[index] - y_partial
+
+        if (error > 0) {
+            false_negative <- false_negative + 1
+        } else if (error < 0) {
+            false_positive <- false_positive + 1
+        } else if (y[index] == 1) {
+            true_positive <- true_positive + 1
+        } else {
+            true_negative <- true_negative + 1
+        }
+
+        errors <- c(errors, error)
+        y_result <- c(y_result, y_partial)
+
+    }
+
+    confusion_matrix <- matrix(replicate(4, 0), nrow = 2, ncol = 2)
+    confusion_matrix[1,1] <- true_positive
+    confusion_matrix[1,2] <- false_positive
+    confusion_matrix[2,1] <- false_negative
+    confusion_matrix[2,2] <- true_negative
+
+    return(list(
+        'y_result' = y_result,
+        'errors' = errors,
+        'mean_error'= mean(errors),
+        'accuracy' = (1 - mean(errors)),
+        'specitivity'= true_negative / (true_negative + false_positive),
+        'sensibility' = true_positive / (true_positive + false_negative),
+        'confusion_matrix' = confusion_matrix
+    ))
+}
 @
+
+Após realizar o treinamento com os conjuntos de dados obtidos anteriormente, foram obtidos os seguintes parâmetros de peso,
+
+<<echo=FALSE>>=
+results <- train(x_train, y_train)
+print(results$weights)
+@
+
+E o erro de aprendizado, sendo avaliado na porcentagem de erros, obtido, foi de,
+
+<<echo=FALSE>>=
+print(abs(mean(results$errors)))
+@
+
+A reta de separação das classes, portanto, pode ser vista a seguir, graficamente. É possível observar como as amostras obtiveram uma separação satisfatória. Qualquer reta que separe as classes corretamente pode ser consisderada como solução do problema, porém é possível observar como a reta obtida possui uma boa adequação ao espaço considerado.
 
 <<echo=FALSE, fig=TRUE>>=
-par(new=T)
-plot()
+line_y <- c()
+line_x <- seq(0, 12, 0.01)
+w <- results$weights
+for (xi in line_x){
+    x2_val <- -(w[2] * xi + w[3]) / w[1]
+    line_y <- c(line_y, x2_val)
+}
+plot(class1[,1], class1[,2], xlim=lim, ylim=lim, col='red', xlab='x1', ylab='x2')
+par(new=TRUE)
+plot(class2[,1], class2[,2], xlim=lim, ylim=lim, col='blue', xlab='', ylab='')
+par(new=TRUE)
+plot(line_x, line_y, xlim=lim, ylim=lim, xlab='', ylab='')
 @
 
+\subsection{Winston Breast Cancer}
+
+O perceptron implementado nas atividades anteriores será utilizado, portanto, para a identificação de tumores malignos, através dos dados disponíveis no dataset Wisconsin Breast Cancer, discponível no pacote mlbench do R.
+
+
+O conjunto de dados consiste em 699 observações, sobre pacientes, caracterizadas por 11 parâmetros, sendo eles 1 parâmetro de ID, 9 de características de um observador e um parâmetro indicando o label do dado, isto é, se o tipo de câncer da amostra é maligno ou benigno.
+
+Primeiramente, portanto, os dados são treinados através da função de trinamento implementada. Para tanto, uma limpeza do dataset é necessária. Alguns campos contém valores nulos (NA), que podem atrapalhar na classificação. Além disso, é necessário garantir que todos os campos sejam numéricos, incluindo os rótulos, uma vez que todo o processo é feito matematicamente. Portanto, a preparação dos dados, incluindo a divisão dos datasets em treinamento e teste, são feitas anteriormete como mostrado a seguir:
+
+<<echo+T>>=
+data("BreastCancer")
+
+bc <- BreastCancer[complete.cases(BreastCancer),]
+
+x <- bc[, 2:10]
+y <- bc[,11]
+
+x <- sapply(x, as.numeric)
+y <- replicate(dim(bc)[1], 0)
+y[which(bc[,11]== 'benign')] = 0
+y[which(bc[,11]== 'malignant')] = 1
+
+sprintf('Total number of valid observations: %d', dim(x)[1])
+@
+
+Os dados então são treinados, e em seguida avaliados, através de
+
+<<echo=T>>=
+
+index_train = sample(seq(dim(x)[1]), as.integer(0.7*dim(x)[1]), replace=FALSE)
+x_train = x[index_train,]
+x_test = x[-index_train,]
+
+y_train <- y[index_train]
+y_test = y[-index_train]
+
+results_bc <- train(x_train, y_train, eta = 0.5)
+test_results_bc <- evaluate(x_test, y_test, results_bc$weights)
+@
+
+Para  avaliar o desempenho do modelo em classificação, podemos usar métricas como porcentagem de acertos dos dados de teste, sensibilidade e especificidade. Sensibilidade é definida como sendo a medida da proporção de casos positivos nas amostras que foram corretamente classificadas como positivas, também chamada na literatura de \textit{recall}. Matematicamente, pode se calculado como sendo:
+
+\begin{equation}
+Sentibilidade = \dfrac{True Positive}{True Positive + False Positive}
+\end{equation}
+
+\noindent
+Especificidade é definida como sendo a proporção de negativos nas amostras que foram preditas como negativas. Matematicamente, pode ser definidocomo sendo:
+
+\begin{equation}
+Specificity = \dfrac{True Negative}{True Negativa + False Positive}
+\end{equation}
+
+A porcentagem de erro do modelo, para o conjunto de teste, é:
+
+<<echo=F>>=
+print(test_results_bc$mean_error)
+@
+
+A sensibilidade para os dados foi de:
+<<echo=F>>=
+print(test_results_bc$sensibility)
+@
+
+\noindent
+e a especificidade foi de:
+
+<<echo=F>>=
+print(test_results_bc$specitivity)
+@
+
+A curva ROC (Receiver Operating Characteristic) pode ser utilizada para a avaliação do desempenho do modelo. A mesma é construída cruzando sensibilidade com specificidade.
+
+<<echo=FALSE, fig=T>>=
+library('pROC')
+
+r <- roc(y_test, test_results_bc$y_result, auc=TRUE, ci=TRUE, plot=TRUE)
+@
+
+A área de uma curva ROC pode ser utilizada para a avaliação do desempenho de um modelo de classificação. Quanto maios próximo de 1, melhor o desempenho da rede em classificar um conjunto de amostras. A área sob a curva ROC para este modelo, é de
+
+<<echo=F>>=
+print(r$auc)
+@
+
+A matriz de confusão é uma tabela que relaciona a quantidade de verdadeiros positivos, negativos, e de falsos positivos e negativos. Ela é construída como sendo:
+
+\begin{table}[H]
+\begin{tabular}{|l|l|}
+\hline
+True Positive & False Positive \\ \hline
+False Negative & True Negative \\ \hline
+\end{tabular}
+\end{table}
+
+Para o conjunto de dados avaliado, a matriz é, portanto,
+
+<<echo=F>>=
+print(test_results_bc$confusion_matrix)
+@
+
+Os resultados demonstram um desempenho considerado alto para o modelo e o conjunto de dados especificados. A acurácia é  elevada, com menos de 1\% de erro nas predições para o conjunto de teste.
+
+\section{Regressão}
+
+Um neurônio MCP é caracterizado pela aplicação de uma função de limiar à soma ponderada das features consideradas. No caso do perceptron, como especificado anteriormente, esta corresponde a uma função de separação, tal como tangente hiperbólica. O modelo adaline consiste em aplicar, à soma ponderada, uma função de identidade, de forma que a saída corresponda exatamente ao valor da soma ponderada de entrada. Considerando a função de treinamento definida anteriormente, aplicando a modificação na função de ativação, a mesma se torna:
+
+<<echo=T>>=
+train <- function(x, y, eta=0.01, dimension=2) {
+    epochs <- 100
+    correction_factor <- eta
+
+    x_aug <- cbind(x, replicate(dim(x)[1], 1))
+
+    w = rnorm(dim(x)[2]+1, 0, 1)
+
+    errors = c()
+
+    for (iter in seq(epochs)) {
+        x_seq <- sample(dim(x_aug)[1])
+
+        curr_error <- c()
+        for (index in x_seq){
+            y_partial <- 1*(x_aug[index,] %*% w)
+            error <- y[index,1] - y_partial
+            delt_w <- correction_factor*error*x_aug[index,]
+            w <- w + delt_w
+
+            curr_error <- c(curr_error, error**2)
+        }
+        errors <- c(errors, mean(curr_error))
+    }
+    result <- list('errors'=errors, 'weights'=w)
+
+    return(result)
+}
+
+@
+
+\subsection{Regressão de uma Reta}
+
+Para testar o conceito deste modelo, primeiramente é gerado um conjunto de dados lineares onde cada amostra possui um erro associado, conforme:
+
+<<echo=T, fig=T>>=
+set.seed(42)
+f_generator <- c(2, 1)
+y <- c()
+x <- seq(0, 12, 0.01)
+for (index in x) {
+    data_y <- index * f_generator[1] + f_generator[2]
+    y <- c(y, data_y + rnorm(1, 0, 1))
+}
+
+x <- as.matrix(x, ncol=1)
+y <- as.matrix(y, ncol=1)
+
+index_train = sample(dim(x)[1], replace=FALSE)
+x_train = x[index_train,]
+y_train = y[index_train,]
+
+xlim <- c(0,12)
+ylim <- c(0, 25)
+plot(x, y, xlab = 'x1', ylab = 'x2', xlim=xlim, ylim=ylim)
+@
+
+Aplicando a função de treinamento aos dados associados, temos os seguintes valores para os pesos:
+
+<<echo=F>>=
+results <- train(x, y)
+results$weights
+@
+
+Onde a reta de regressão obtida pode ser vista à seguir:
+
+<<echo=F, fig=T>>=
+line_y <- c()
+line_x <- x
+w <- results$weights
+for (xi in line_x){
+    x2_val <- w[2] + w[1] * xi
+    line_y <- c(line_y, x2_val)
+}
+plot(x, y, xlab = 'x1', ylab = 'x2', xlim=xlim, ylim=ylim, col='red')
+par(new=T)
+plot(line_x, line_y, xlab='', ylab='', xlim=xlim, ylim = ylim, type='l', col='black')
+@
+
+
+O erro médio quadrático para o treinamento foi de:
+
+<<echo=F>>=
+print(mean(results$errors))
+@
+
+Se observarmos a evolução dos erros à cada interação, é possível verificar que os mesmos apresentam uma distribuição normal, sem que haja uma queda observável da primeira interação até a última. Uma hipótese para esta observação é o fato de que, sendo uma regressão linear, com poucas amostras é possível estimar uma reta característica, e os próximos pontos apenas se enquadram de realizar o ajuste. Ao realizar o treinamento com todos os pontos, mesmo variando de forma aleatória suas ordem, a cada iteração, é pouco improvável que haja uma variação considerável do ajuste da reta em uma próxima iteração. Em outras palavras, pode-se inferir que a equação que se deseja obter a partr da aplicação do modelo é pouco complexa para que sejam observadas variações consideráveis do erro médio quadrático de cada uma delas.
+
+<<echo=F, fig=T>>=
+plot(results$errors, xlab='Iteração', ylab='MSE', type='l')
+@
+
+\subsection{Regressão de Datasets Personalizados}
+
+Utilizando o Adaline, é possível avaliar seu comportamento no treinamento de três conjuntos de dados específicos.
 
 <<echo=TRUE>>=
-ydata = read.csv("BUILDING1paraR.DT", sep=" ")
+rm(list = setdiff(ls(), lsf.str()))
+data = read.csv("BUILDING1paraR.DT", sep=" ")
+
+x <- as.matrix(data[1:14])
+y <- as.matrix(data[15:17])
+
+y_energy <- as.matrix(data[15])
+y_hot <- as.matrix(data[16])
+y_cold <- as.matrix(data[17])
+
+
+index_train = sample(seq(dim(x)[1]), as.integer(0.7*dim(x)[1]), replace=FALSE)
+x_train = as.matrix(x[index_train,])
+x_test = as.matrix(x[-index_train,])
+
+y_train <- as.matrix(y[index_train,])
+y_test = as.matrix(y[-index_train,])
+@
+
+Realizando o treinamento para o parâmetro 'Energia',
+
+<<echo=T>>=
+results_energy <- train(x_train, as.matrix(y_train[,1]))
+@
+
+\noindent
+o erro médio quadrático obtido para o treinamento é:
+
+<<echo=F>>=
+print(mean(results_energy$errors))
+@
+
+\noindent
+cuja evolução pode ser vista na figura à seguir.
+
+<<echo=F, fig=T>>=
+plot(results_energy$errors, xlab='Iteração', ylab='MSE', type='l')
+@
+
+Para o parâmetro "Hot Water',
+
+<<echo=T>>=
+results_hot <- train(x_train, as.matrix(y_train[,2]))
+@
+
+\noindent
+o erro médio quadrático obtido para o treinamento é:
+
+<<echo=F>>=
+print(mean(results_hot$errors))
+@
+
+E, finalmente, para o parâmetro de "Cold Water".
+
+<<echo=T>>=
+results_cold <- train(x_train, as.matrix(y_train[,2]))
+@
+
+\noindent
+o erro médio quadrático obtido para o treinamento é:
+
+<<echo=F>>=
+print(mean(results_cold$errors))
+@
+
+\noindent
+cuja evolução pode ser vista na figura à seguir.
+
+<<echo=F, fig=T>>=
+plot(results_cold$errors, xlab='Iteração', ylab='MSE', type='l')
+@
+
+Fazendo uso de funções de fit e avaliação, conforme definidas a seguir,
+
+<<echo=T>>=
+fit <- function(x, w) {
+    x_aug <- cbind(x, replicate(dim(x)[1], 1))
+
+    rows <- dim(x_aug)[1]
+    cols <- dim(x_aug)[2]
+
+    y <- matrix(ncol = 1, nrow = rows)
+
+    for (index in seq(rows)) {
+        y[index,] <- x_aug[index, ] %*% w
+    }
+
+    return (y)
+
+}
+
+evaluate <- function(y, y_hat) {
+    rows <- dim(y)
+
+    mse <- 0
+    err_percent <- 0
+    for (index in seq(rows)) {
+        error <- y[index,] - y_hat[index,]
+        err_percent <- abs(error / y[index,])
+        mse <- mse + error**2
+    }
+
+    return (list(
+        'mse'=mean(mse),
+        'err_percent'=mean(err_percent)
+    ))
+}
+@
+
+\noindent
+é possível avaliar o desempenho dos modelos para conjuntos de teste dos valores especificados. Então, seguindo um algoritmo como o descrito a seguir,
+
+<<echo=T>>=
+y_energy <- fit(x_test, results_energy$weights)
+y_hot <- fit(x_test, results_hot$weights)
+y_cold <- fit(x_test, results_cold$weights)
+
+mse_energy <- evaluate(as.matrix(y_test[, 1]), y_energy)
+mse_hot <- evaluate(as.matrix(y_test[, 2]), y_hot)
+mse_cold <- evaluate(as.matrix(y_test[, 3]), y_cold)
+@
+
+Obtemos os valores de erro quadrático médio para cara parâmetro.
+
+<<echo=F>>=
+sprintf('MSE para "Energy": %f', mse_energy$mse)
+sprintf('MSE para "Hot Water": %f', mse_hot$mse)
+sprintf('MSE para "Cold Water": %f', mse_cold$mse)
+
+sprintf('Error percentual para "Energy": %f', mse_energy$err_percent)
+sprintf('Error percentual para "Hot Water": %f', mse_hot$err_percent)
+sprintf('Error percentual para "Cold Water": %f', mse_cold$err_percent)
 @
 
 
+Os resultados dos testes para os modelos, nos três parâmetros, apontam para um bom desempenho dos mesmos, se considerarmos um parâmetro de limite abaixo de 5\% de erro. O maior erro percentual foi para "Cold Water", com 3\% de erro. Um neurônio com uma função de ativação de identidade, portanto, apresenta-se como uma boa solução de modelagem do problema apresentado pelo conjunto de dados.
 
+\begin{thebibliography}{1}
+
+	%Each item starts with a \bibitem{reference} command and the details thereafter.
+	\bibitem{specificity} % Transaction paper
+	ML Metrics: Sensitivity vs. Specificity -
+	\url{https://dzone.com/articles/ml-metrics-sensitivity-vs-specificity-difference}.
+	Acessado em 28 de agosto de 2019.
+
+
+\end{thebibliography}
 
 \end{document}
