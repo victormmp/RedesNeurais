@@ -379,11 +379,280 @@ False Negative & True Negative \\ \hline
 \end{tabular}
 \end{table}
 
+Para os dados de teste, temos:
+
+<<echo=F, fig=F>>=
+rows <- dim(x_test)[1]
+features <- dim(x_test)[2]
+Xaug <- cbind(replicate(rows, 1), x_test)
+H <- tanh(Xaug %*% Z)
+Y_hat_t <- sign(H %*% W)
+
+result <- evaluate(y_test, Y_hat_t)
+
+sprintf('Porcentagem de erro: %f', result$error)
+sprintf('Acurácia: %f', result$accuracy)
+sprintf('Sensibiliade: %f', result$sensibility)
+sprintf('Especificidade: %f', result$specitivity)
+@
+
+E a matriz de confusão:
+
+<<echo=F>>=
+print(result$confusion_matrix)
+@
+
+\section{RBF}
+
+<<echo=F>>=
+rm(list=ls())
+library(pracma)
+library(corpcor)
+library(mlbench)
+library(stats)
+load("data2classXOR.txt")
+@
 
 
+Redes RBF, como mencionado anteriormente, utilizam funções de ativação radial para os neurônios da camada escondida. A saída da rede, constituindo-se de um valor único, é definida como sendo:
+
+\begin{equation}
+\varphi(\overline{X}) = \sum^{N}_{i=1} \alpha_i \rho(|| \overline(x) - \overline(c)_i ||)
+\end{equation}
+
+\noindent
+onde $\varphi$ corresponde à função de ativação do neurônio de saída, neste caso uma função de identidade de tangente hiperbólica, N corresponde ao número de neurônios na camada escondida, $\alpha_i$ corresponde ao peso deste neurônio na soma ponderada para a camada de saída, $c_i$ corresponde à posição de cada centróide e $\rho$ é uma função radial gaussiana, definida, por sua vez, como:
+
+\begin{equation}
+\rho(|| \overline(x) - \overline(c)_i ||) = \exp(-\beta(|| \overline(x) - \overline(c)_i ||)^2)
+\end{equation}
+
+Em outras palavras, cada neurônio da camada escondida pode corresponder a um centróide de um processo de clusterização das amostras. A saída de cada um desses neurônios, para uma observação, corresponde à distância euclidiana da observação ao centróide do neurônio em questão, após passar por uma função de ativação gaussiana, com um parâmetro de regularização $\beta$. Com isso, cada amostra é mapeada de um espaço com as dimensões originais das amostras, para um espaço de dimensões iguais à quantidade de neurônios utilizados na camada escondida. Definimos uma função radial da forma:
+
+<<echo=T>>=
+radial_activation <- function (X, centers, beta=0.1) {
+    n_samples <- dim(X)[1]
+    features <- dim(X)[2]
+
+    n_centers <- dim(centers)[2]
+
+    result <- matrix(nrow=n_samples, ncol=n_centers)
+
+    for (sample in seq(n_samples)) {
+        for (center in seq(n_centers)) {
+            result[sample, center] <- exp(
+                -beta * dist(rbind(X[sample,], centers[,center]))**2
+                )
+        }
+    }
+
+    return(result)
+}
+@
+
+O algoritmo utilizado para o treinamento dos dados, portanto, é:
+
+<<echo=T>>=
+
+rows <- dim(X)[1]
+features <- dim(X)[2]
+
+# Number of neurons in hidden layer
+p <- 5
+Z <- replicate(p, replicate(features+1, 1))
+print(Z)
+
+# Training
+Xaug <- cbind(replicate(rows, 1), X)
+
+centroids <- kmeans(Xaug, p)
+centers <- t(centroids$centers)
+
+H <- radial_activation(Xaug, centers)
+
+# H <- tanh(Xaug %*% Z)
+W <- pseudoinverse(H) %*% Y
+@
+
+O desempenho do treinamento realizado pode ser observado ao aplicarmos o cálculo com os pesos no conjunto de treinamento, e avaliar o erro associado:
+
+<<echo=T>>=
+# Calculate Error
+Y_hat <- sign(H %*% W)
+err <- sum((Y-Y_hat)^2)/4
+print(err)
+@
+
+Aplicando o modelo para um conjunto de teste, o erro calculado é de:
+
+<<echo=T>>=
+# Test
+Xaug <- cbind(replicate(features * 4, 1), X_t)
+Ht <- radial_activation(Xaug, centers)
+Y_hat_t <- sign(Ht %*% W)
+err_t <- sum((Y_t-Y_hat_t)^2)/4
+print(err_t)
+@
+
+Podemos realizar uma análise similar à realizada para ELM, considerando a influência do número de neurônios na camada escondida com o desempenho da rede implementada. Portando, para um conjunto de treinamento, temos o seguinte gráfico de desempenho:
+
+<<echo=F, fig=T>>=
+errs_train <- c()
+errs_test <- c()
+n_samples <- dim(X)[1]
+for (p in seq(1, n_samples-1)) {
+    Xaug <- cbind(replicate(rows, 1), X)
+    centroids <- kmeans(Xaug, p)
+    centers <- t(centroids$centers)
+    H <- radial_activation(Xaug, centers)
+    W <- pseudoinverse(H) %*% Y
+    Y_hat <- sign(H %*% W)
+    err <- sum((Y-Y_hat)^2)/4
+    errs_train <- c(errs_train, err)
+
+    # Test
+    Xaug <- cbind(replicate(features * 4, 1), X_t)
+    Ht <- radial_activation(Xaug, centers)
+    Y_hat_t <- sign(Ht %*% W)
+    err_t <- sum((Y_t-Y_hat_t)^2)/4
+    errs_test <- c(errs_test, err_t)
+}
+
+plot(seq(1, n_samples-1), errs_train, xlab='Números de neurônios na camada intermediária para treinamento', ylab='Erros', type='l')
+
+@
+
+E, para as amostras de teste,
+
+<<echo=F, fig=T>>=
+plot(seq(1, n_samples-1), errs_test, xlab='Números de neurônios na camada intermediária para teste', ylab='Erros', type='l')
+@
+
+O número de neurônios máximo que podemos definir é limitado pelo número máximo de amostras disponíveis, uma vez que  seria impossível definir mais centros do que amostras. Pelos gráficos, podemos observar que um aumento do número de centróides causa uma diminuição do desempenho da rede, devido a um overfitting dos dados, umva vez que este decaimento de desempenho não é obervado no treinamento.
+
+\subsection{Wisconsin Breast Cancer}
+
+O modelo de redes neurais multicamadas RBF é, agora, utilizado para treinamento de dataset Wisconsin Breast Cancer. O dataset foi dividido em treinamento e teste.
+
+<<echo=T>>=
+rm(list = setdiff(ls(), lsf.str()))
+data("BreastCancer")
+
+bc <- BreastCancer[complete.cases(BreastCancer),]
+x <- bc[, 2:10]
+y <- bc[,11]
+
+x <- sapply(x, as.numeric)
+y <- replicate(dim(bc)[1], 0)
+y[which(bc[,11]== 'benign')] = -1
+y[which(bc[,11]== 'malignant')] = 1
+
+index_train = sample(seq(dim(x)[1]), as.integer(0.7*dim(x)[1]), replace=FALSE)
+x_train = x[index_train,]
+x_test = x[-index_train,]
+
+y_train <- y[index_train]
+y_test = y[-index_train]
+@
+
+Para avaliar o resultado das operações, será feito uso novamente de uma função de performance como especificada anteriormente:
+
+<<echo=T>>=
+evaluate <- function(y, y_hat) {
+
+    y[which(y<0)] = 0
+    y_hat[which(y_hat<0)] = 0
+
+    errors <- y - y_hat
+    false_positive <- length(errors[errors < 0])
+    true_positive <- length(y[y[which(errors == 0)] > 0])
+    false_negative <- length(errors[errors > 0])
+    true_negative <- length(y[y[which(errors == 0)] <= 0])
+
+    confusion_matrix <- matrix(replicate(4, 0), nrow = 2, ncol = 2)
+    confusion_matrix[1,1] <- true_positive
+    confusion_matrix[1,2] <- false_positive
+    confusion_matrix[2,1] <- false_negative
+    confusion_matrix[2,2] <- true_negative
+
+    return(list(
+        'errors' = errors,
+        'error'= mean(abs(errors)),
+        'accuracy' = (1 - mean(abs(errors))),
+        'specitivity'= true_negative / (true_negative + false_positive),
+        'sensibility' = true_positive / (true_positive + false_negative),
+        'confusion_matrix' = confusion_matrix
+    ))
+}
+@
 
 
+Realizando o treinamento, temos as seguintes métricas como resultado.
 
+<<echo=F, fig=F>>=
+rows <- dim(x_train)[1]
+features <- dim(x_train)[2]
+
+# Number of neurons in hidden layer
+p <- 5
+
+# Training
+Xaug <- cbind(replicate(rows, 1), x_train)
+centroids <- kmeans(Xaug, p)
+centers <- t(centroids$centers)
+H <- radial_activation(Xaug, centers)
+W <- pseudoinverse(H) %*% y_train
+
+# Calculate Error
+Y_hat <- sign(H %*% W)
+
+result <- evaluate(y_train, Y_hat)
+
+sprintf('Porcentagem de erro: %f', result$error)
+sprintf('Acurácia: %f', result$accuracy)
+sprintf('Sensibiliade: %f', result$sensibility)
+sprintf('Especificidade: %f', result$specitivity)
+@
+
+As métricas de teste obtidas mostram um bom desempenho também do modelo em RBF para a predição de câncer de mama, com as features especificadas. A matriz de confusão obtida pode ser vista a seguir:
+
+<<echo=F>>=
+print(result$confusion_matrix)
+@
+
+A matriz de confusão corresponde a:
+
+\begin{table}[H]
+\begin{tabular}{|l|l|}
+\hline
+True Positive & False Positive \\ \hline
+False Negative & True Negative \\ \hline
+\end{tabular}
+\end{table}
+
+Para os dados de teste, temos:
+
+<<echo=F, fig=F>>=
+rows <- dim(x_test)[1]
+features <- dim(x_test)[2]
+Xaug <- cbind(replicate(rows, 1), x_test)
+centers <- t(centroids$centers)
+Ht <- radial_activation(Xaug, centers)
+Y_hat_t <- sign(Ht %*% W)
+
+result <- evaluate(y_test, Y_hat_t)
+
+sprintf('Porcentagem de erro: %f', result$error)
+sprintf('Acurácia: %f', result$accuracy)
+sprintf('Sensibiliade: %f', result$sensibility)
+sprintf('Especificidade: %f', result$specitivity)
+@
+
+E a matriz de confusão:
+
+<<echo=F>>=
+print(result$confusion_matrix)
+@
 
 \begin{thebibliography}{1}
 

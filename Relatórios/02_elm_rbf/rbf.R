@@ -5,7 +5,7 @@ library(mlbench)
 library(stats)
 load("data2classXOR.txt")
 
-euclidian_activation <- function (X, centers) {
+radial_activation <- function (X, centers, beta=0.1) {
     n_samples <- dim(X)[1]
     features <- dim(X)[2]
 
@@ -15,7 +15,9 @@ euclidian_activation <- function (X, centers) {
 
     for (sample in seq(n_samples)) {
         for (center in seq(n_centers)) {
-            result[sample, center] <- dist(rbind(X[sample,], centers[,center]))
+            result[sample, center] <- exp(
+                -beta * dist(rbind(X[sample,], centers[,center]))**2
+            )
         }
     }
 
@@ -36,7 +38,7 @@ Xaug <- cbind(replicate(rows, 1), X)
 centroids <- kmeans(Xaug, p)
 centers <- t(centroids$centers)
 
-H <- euclidian_activation(Xaug, centers)
+H <- radial_activation(Xaug, centers)
 
 # H <- tanh(Xaug %*% Z)
 W <- pseudoinverse(H) %*% Y
@@ -47,23 +49,13 @@ err <- sum((Y-Y_hat)^2)/4
 print(err)
 
 # Test
-Xaug <- cbind(replicate(features * 4, 1), X_t)
-Ht <- tanh(Xaug %*% Z)
+Xaug <- cbind(replicate(rows, 1), X_t)
+centers <- t(centroids$centers)
+Ht <- radial_activation(Xaug, centers)
 Y_hat_t <- sign(Ht %*% W)
 err_t <- sum((Y_t-Y_hat_t)^2)/4
 print(err_t)
 
-
-
-# x_seq <- seq(0, 6, 0.1)
-# N <- length(x_seq)
-# M <- matrix(ncol=length(x_seq), nrow=length(x_seq))
-#
-# for (i in seq(N)) {
-#     for (j in seq(N)) {
-#         M[i, j] <- x_seq
-#     }
-# }
 
 
 data("BreastCancer")
@@ -88,11 +80,13 @@ rows <- dim(x_train)[1]
 features <- dim(x_train)[2]
 
 # Number of neurons in hidden layer
-p <- 20
-Z <- replicate(p, runif(features+1, -0.5, 0.5))
-Xaug <- cbind(replicate(rows, 1), x_train)
+p <- 5
 
-H <- tanh(Xaug %*% Z)
+# Training
+Xaug <- cbind(replicate(rows, 1), x_train)
+centroids <- kmeans(Xaug, p)
+centers <- t(centroids$centers)
+H <- radial_activation(Xaug, centers)
 W <- pseudoinverse(H) %*% y_train
 
 # Calculate Error
@@ -104,13 +98,9 @@ print(err)
 # Test
 rows <- dim(x_test)[1]
 features <- dim(x_test)[2]
-
-# Number of neurons in hidden layer
-p <- 20
-Z <- replicate(p, runif(features+1, -0.5, 0.5))
 Xaug <- cbind(replicate(rows, 1), x_test)
-
-H <- tanh(Xaug %*% Z)
-Y_hat <- sign(H %*% W)
-err <- sum((y_test-Y_hat)^2)/4
-print(err)
+centers <- t(centroids$centers)
+Ht <- radial_activation(Xaug, centers)
+Y_hat_t <- sign(Ht %*% W)
+err_t <- sum((y_test-Y_hat_t)^2)/4
+print(err_t)
