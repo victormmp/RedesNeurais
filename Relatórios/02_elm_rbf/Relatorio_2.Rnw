@@ -459,8 +459,6 @@ features <- dim(X)[2]
 
 # Number of neurons in hidden layer
 p <- 5
-Z <- replicate(p, replicate(features+1, 1))
-print(Z)
 
 # Training
 Xaug <- cbind(replicate(rows, 1), X)
