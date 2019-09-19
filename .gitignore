@@ -2,3 +2,5 @@
 **/*.log
 **/*-concordance.tex
 **/*.zip
+**/.idea
+**/.Rhistory
